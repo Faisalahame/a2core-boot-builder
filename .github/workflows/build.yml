@@ -22,10 +22,11 @@ jobs:
           gh release download run-35587451585 -R Faisalahame/lineage-a2corelte -p boot.img --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Patch + build kernel (prompt-proof)
+      - name: Patch + build kernel (crash-proof)
         run: |
           set -x
           export ANDROID_MAJOR_VERSION=o
+          nproc; free -m
           mkdir ksrc && tar -xzf Kernel.tar.gz -C ksrc
           cd ksrc
           mkdir -p firmware && touch firmware/gnss_firmware.bin
@@ -39,9 +40,20 @@ jobs:
             --set-val CONFIG_CMDLINE_FORCE y \
             --set-str CONFIG_CMDLINE "console=ram loglevel=8 androidboot.hardware=samsungexynos7870 androidboot.selinux=permissive selinux=0 firmware_class.path=/vendor/firmware"
           make $KC olddefconfig < /dev/null
-          make $KC -j$(nproc) Image dtbs < /dev/null
+          set +e
+          make $KC -j2 Image dtbs < /dev/null 2>&1 | tee ../kernel_build.log
+          RC=${PIPESTATUS[0]}
+          set -e
+          if [ "$RC" -ne 0 ]; then
+            echo "KERNEL MAKE FAILED rc=$RC"
+            tail -80 ../kernel_build.log
+            free -m
+            exit 1
+          fi
           DTB=$(find arch/arm64/boot/dts -name '*a2core*.dtb' | head -1)
+          echo "DTB=$DTB"
           cat arch/arm64/boot/Image $DTB > ../kernel-dtb
+          ls -la ../kernel-dtb
           cd ..
       - name: Pack v5 boot.img (fail loudly if any patch misses)
         run: |
@@ -68,3 +80,9 @@ jobs:
           files: patched_boot.img
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload kernel build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-build-log
+          path: kernel_build.log
