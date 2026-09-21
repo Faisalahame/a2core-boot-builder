@@ -56,18 +56,15 @@ jobs:
           cat arch/arm64/boot/Image $DTB > ../kernel-dtb
           ls -la ../kernel-dtb
           cd ..
-      - name: Pack v5 boot.img (fail loudly if any patch misses)
+      - name: Pack v5 boot.img (inject fstab into ramdisk)
         run: |
           set -x
           ./magiskboot unpack boot.img
           mkdir rd && cd rd
-          ../magiskboot cpio ../ramdisk.cpio extract || true
-          [ -f init.rc ] || cpio -idm < ../ramdisk.cpio
-          ls init.rc fstab.samsungexynos7870
+          ../magiskboot cpio ../ramdisk.cpio extract
+          curl -sfL -o fstab.samsungexynos7870 https://raw.githubusercontent.com/Faisalahame/lineage-a2corelte/main/rootdir/fstab.samsungexynos7870
           sed -i 's/,verify//g; s/,avb=vbmeta//g; s/,avb_keys=.*//g' fstab.samsungexynos7870
-          sed -i 's/,verify//g; s/,avb=vbmeta//g; s/,avb_keys=.*//g' fstab.exynos7870 || true
-          grep -q "setenforce 0" init.rc || sed -i '/on early-init/a\    setenforce 0' init.rc
-          grep -q "write /dev/watchdog V" init.rc || printf 'on early-init\n    write /dev/watchdog V\n' >> init.rc
+          cat fstab.samsungexynos7870
           cd ..
           rm -f ramdisk.cpio
           (cd rd && find . | cpio -o -H newc > ../ramdisk.cpio)
