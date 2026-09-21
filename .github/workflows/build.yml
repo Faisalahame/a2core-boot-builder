@@ -39,7 +39,8 @@ jobs:
           ../magiskboot cpio ../lin/ramdisk.cpio "add 644 fstab.exynos7870 fstab.exynos7870" || true
           cd ..
           cp lin/ramdisk.cpio stock/ramdisk.cpio
-          cd stock && ../magiskboot repack ../stock_boot.img ../patched_boot.img && cd ..
+          cd stock && ../magiskboot repack ../stock_boot.img ../patched_boot.img
+          ../magiskboot hexpatch ../patched_boot.img 6C6F676C6576656C3D34 6C6F676C6576656C3D38 && cd ..
           if [ "$(tail -c 16 stock_boot.img)" = "SEANDROIDENFORCE" ]; then printf 'SEANDROIDENFORCE' >> patched_boot.img; fi
           mkdir check && cd check && ../magiskboot unpack ../patched_boot.img && cd ..
           ls -la stock_boot.img boot.img patched_boot.img
