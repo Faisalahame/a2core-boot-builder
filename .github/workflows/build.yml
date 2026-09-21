@@ -38,9 +38,9 @@ jobs:
             --set-val CONFIG_PSTORE y --set-val CONFIG_RAMOOPS y \
             --set-val CONFIG_PSTORE_CONSOLE y --set-val CONFIG_PSTORE_RAM y \
             --set-val CONFIG_FRAMEBUFFER_CONSOLE y \
-            --set-val CONFIG_CMDLINE_FORCE y \
-            --set-str CONFIG_CMDLINE "console=ram loglevel=8 androidboot.hardware=samsungexynos7870 androidboot.selinux=permissive selinux=0 firmware_class.path=/vendor/firmware"
+            --set-val CONFIG_CMDLINE_FORCE n --set-val CONFIG_SECURITY_SELINUX n --set-val CONFIG_CONSOLE_LOGLEVEL_DEFAULT 8 --set-val CONFIG_MESSAGE_LOGLEVEL_DEFAULT 7
           make $KC olddefconfig < /dev/null
+          grep -E "CMDLINE_FORCE|SECURITY_SELINUX|LOGLEVEL_DEFAULT|PSTORE_CONSOLE|RAMOOPS" .config
           set +e
           make $KC -j2 Image dtbs < /dev/null 2>&1 | tee ../kernel_build.log
           RC=${PIPESTATUS[0]}
