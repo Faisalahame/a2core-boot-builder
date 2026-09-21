@@ -20,7 +20,7 @@ jobs:
 
       - name: Download Original Lineage Boot.img
         run: |
-          gh release download run-35587451585 -R Faisalahame/lineage-a2corelte -p 'boot.img'
+          gh release download run-35587451585 -R Faisalahame/lineage-a2corelte -p 'boot.img' --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
