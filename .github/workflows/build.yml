@@ -25,21 +25,23 @@ jobs:
       - name: Patch + build kernel
         run: |
           set -x
+          export ANDROID_MAJOR_VERSION=o
           mkdir ksrc && tar -xzf Kernel.tar.gz -C ksrc
           cd ksrc
           mkdir -p firmware && touch firmware/gnss_firmware.bin
           sed -i 's/\$(shell expr [^)]*)/9/g' drivers/net/wireless/Makefile
-          make ARCH=arm64 CROSS_COMPILE=$HOME/tc49/bin/aarch64-linux-android- exynos7870-a2corelte_defconfig
+          KC="ARCH=arm64 CROSS_COMPILE=$HOME/tc49/bin/aarch64-linux-android-"
+          make $KC exynos7870-a2corelte_defconfig < /dev/null
           scripts/config --file .config \
             --set-val CONFIG_PSTORE y --set-val CONFIG_RAMOOPS y \
             --set-val CONFIG_PSTORE_CONSOLE y --set-val CONFIG_PSTORE_RAM y \
             --set-val CONFIG_FRAMEBUFFER_CONSOLE y \
             --set-val CONFIG_CMDLINE_FORCE y \
             --set-str CONFIG_CMDLINE "console=ram loglevel=8 androidboot.hardware=samsungexynos7870 androidboot.selinux=permissive selinux=0 firmware_class.path=/vendor/firmware"
-          make ARCH=arm64 CROSS_COMPILE=$HOME/tc49/bin/aarch64-linux-android- oldconfig
-          make ARCH=arm64 CROSS_COMPILE=$HOME/tc49/bin/aarch64-linux-android- -j$(nproc) Image dtbs
-          cat arch/arm64/boot/Image arch/arm64/boot/dts/exynos/exynos7870-a2corelte.dtb > ../kernel-dtb 2>/dev/null || \
-          cat arch/arm64/boot/Image $(find arch/arm64/boot/dts -name '*a2core*.dtb' | head -1) > ../kernel-dtb
+          make $KC olddefconfig < /dev/null
+          make $KC -j$(nproc) Image dtbs < /dev/null
+          DTB=$(find arch/arm64/boot/dts -name '*a2core*.dtb' | head -1)
+          cat arch/arm64/boot/Image $DTB > ../kernel-dtb
           cd ..
       - name: Pack v5 boot.img
         run: |
