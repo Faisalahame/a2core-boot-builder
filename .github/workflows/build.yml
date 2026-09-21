@@ -27,7 +27,7 @@ jobs:
           set -x
           export ANDROID_MAJOR_VERSION=o
           nproc; free -m
-          mkdir ksrc && tar -xzf Kernel.tar.gz -C ksrc
+          mkdir ksrc && tar -xzf Kernel.tar.gz -C ksrc && chmod -R u+w ksrc
           cd ksrc
           mkdir -p firmware && touch firmware/gnss_firmware.bin
           echo "HOSTCFLAGS += -fcommon" >> Makefile
