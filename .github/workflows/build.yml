@@ -11,7 +11,7 @@ jobs:
       - name: Deps + toolchain + magiskboot
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison flex libssl-dev make wget unzip
+          sudo apt-get install -y bc bison flex libssl-dev make wget unzip cpio
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 ~/tc49
           wget -q https://github.com/topjohnwu/Magisk/releases/download/v26.4/Magisk-v26.4.apk
           unzip -j Magisk-v26.4.apk 'lib/x86_64/libmagiskboot.so' -d .
@@ -22,7 +22,7 @@ jobs:
           gh release download run-35587451585 -R Faisalahame/lineage-a2corelte -p boot.img --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Patch + build kernel
+      - name: Patch + build kernel (prompt-proof)
         run: |
           set -x
           export ANDROID_MAJOR_VERSION=o
@@ -43,18 +43,24 @@ jobs:
           DTB=$(find arch/arm64/boot/dts -name '*a2core*.dtb' | head -1)
           cat arch/arm64/boot/Image $DTB > ../kernel-dtb
           cd ..
-      - name: Pack v5 boot.img
+      - name: Pack v5 boot.img (fail loudly if any patch misses)
         run: |
           set -x
           ./magiskboot unpack boot.img
-          mkdir rd && cd rd && ../magiskboot cpio ../ramdisk.cpio extract
-          sed -i 's/,verify//g; s/,avb=vbmeta//g; s/,avb_keys=.*//g' fstab.samsungexynos7870 2>/dev/null || true
-          sed -i 's/,verify//g; s/,avb=vbmeta//g; s/,avb_keys=.*//g' fstab.exynos7870 2>/dev/null || true
+          mkdir rd && cd rd
+          ../magiskboot cpio ../ramdisk.cpio extract || true
+          [ -f init.rc ] || cpio -idm < ../ramdisk.cpio
+          ls init.rc fstab.samsungexynos7870
+          sed -i 's/,verify//g; s/,avb=vbmeta//g; s/,avb_keys=.*//g' fstab.samsungexynos7870
+          sed -i 's/,verify//g; s/,avb=vbmeta//g; s/,avb_keys=.*//g' fstab.exynos7870 || true
           grep -q "setenforce 0" init.rc || sed -i '/on early-init/a\    setenforce 0' init.rc
-          ../magiskboot cpio ../ramdisk.cpio "add 750 init.rc init.rc" || true
+          grep -q "write /dev/watchdog V" init.rc || printf 'on early-init\n    write /dev/watchdog V\n' >> init.rc
           cd ..
+          rm -f ramdisk.cpio
+          (cd rd && find . | cpio -o -H newc > ../ramdisk.cpio)
           cp kernel-dtb kernel
           ./magiskboot repack boot.img patched_boot.img
+          ls -la patched_boot.img
       - name: Upload v5
         uses: softprops/action-gh-release@v2
         with:
