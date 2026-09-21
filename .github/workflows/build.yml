@@ -1,4 +1,4 @@
-name: Build Patched Boot.img
+name: Build Patched Boot.img (Ramdisk Only)
 on: [workflow_dispatch]
 permissions:
   contents: write
@@ -18,12 +18,15 @@ jobs:
           mv libmagiskboot.so magiskboot
           chmod +x magiskboot
 
-      - name: Unpack and Patch
+      - name: Download Original Lineage Boot.img
+        run: |
+          gh release download run-35587451585 -R Faisalahame/lineage-a2corelte -p 'boot.img'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Unpack and Patch Ramdisk ONLY
         run: |
           ./magiskboot unpack boot.img
-          rm -f dtb
-          # FORCE append DTB to the raw kernel image
-          cat Image dtb.img > kernel
           
           # Extract Ramdisk to patch fstab and init.rc
           mkdir ramdisk && cd ramdisk
@@ -33,7 +36,7 @@ jobs:
           sed -i 's/,verify//g; s/,avb=vbmeta//g; s/,avb_keys=.*//g' fstab.samsungexynos7870 || true
           sed -i 's/,verify//g; s/,avb=vbmeta//g; s/,avb_keys=.*//g' fstab.exynos7870 || true
           
-          # FIX 2: Force SELinux Permissive in early-init (bypasses bootloader enforcing flag)
+          # FIX 2: Force SELinux Permissive in early-init
           if ! grep -q "setenforce 0" init.rc; then
             sed -i '/on early-init/a \    setenforce 0' init.rc || echo -e "on early-init\n    setenforce 0" >> init.rc
           fi
@@ -44,13 +47,13 @@ jobs:
           ../magiskboot cpio ../ramdisk.cpio "add 750 init.rc init.rc"
           cd ..
           
-          # Repack boot.img with new kernel+DTB and patched ramdisk
+          # Repack boot.img. DO NOT TOUCH kernel or dtb. Magiskboot will reuse the original ones.
           ./magiskboot repack boot.img patched_boot.img
 
       - name: Upload Patched Boot.img
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: patched-boot-v1
+          tag_name: patched-boot-v2
           files: patched_boot.img
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
