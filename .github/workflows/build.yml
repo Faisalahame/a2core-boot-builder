@@ -1,54 +1,62 @@
-name: Build Patched Boot.img v3 (Stock Base + Lineage Ramdisk)
+name: Build v5 (Self-Compiled Q-Ready Kernel + Lineage Ramdisk)
 on: [workflow_dispatch]
 permissions:
   contents: write
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-
-      - name: Setup Magiskboot
+      - name: Deps + toolchain + magiskboot
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget unzip
+          sudo apt-get install -y bc bison flex libssl-dev make wget unzip
+          git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 ~/tc49
           wget -q https://github.com/topjohnwu/Magisk/releases/download/v26.4/Magisk-v26.4.apk
           unzip -j Magisk-v26.4.apk 'lib/x86_64/libmagiskboot.so' -d .
-          mv libmagiskboot.so magiskboot
-          chmod +x magiskboot
-
-      - name: Download Lineage boot.img (ramdisk donor)
+          mv libmagiskboot.so magiskboot && chmod +x magiskboot
+      - name: Get kernel source + Lineage ramdisk donor
         run: |
-          gh release download run-35587451585 -R Faisalahame/lineage-a2corelte -p 'boot.img' --clobber
+          gh release download kernel-src -R Faisalahame/android_kernel_samsung_a2corelte -p Kernel.tar.gz
+          gh release download run-35587451585 -R Faisalahame/lineage-a2corelte -p boot.img --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build v3 = stock base + Lineage ramdisk + fixes
+      - name: Patch + build kernel
         run: |
           set -x
-          mkdir stock && cd stock && ../magiskboot unpack ../stock_boot.img && cd ..
-          mkdir lin && cd lin && ../magiskboot unpack ../boot.img && cd ..
-          mkdir rd && cd rd
-          ../magiskboot cpio ../lin/ramdisk.cpio extract
+          mkdir ksrc && tar -xzf Kernel.tar.gz -C ksrc
+          cd ksrc
+          mkdir -p firmware && touch firmware/gnss_firmware.bin
+          sed -i 's/\$(shell expr [^)]*)/9/g' drivers/net/wireless/Makefile
+          make ARCH=arm64 CROSS_COMPILE=$HOME/tc49/bin/aarch64-linux-android- exynos7870-a2corelte_defconfig
+          scripts/config --file .config \
+            --set-val CONFIG_PSTORE y --set-val CONFIG_RAMOOPS y \
+            --set-val CONFIG_PSTORE_CONSOLE y --set-val CONFIG_PSTORE_RAM y \
+            --set-val CONFIG_FRAMEBUFFER_CONSOLE y \
+            --set-val CONFIG_CMDLINE_FORCE y \
+            --set-str CONFIG_CMDLINE "console=ram loglevel=8 androidboot.hardware=samsungexynos7870 androidboot.selinux=permissive selinux=0 firmware_class.path=/vendor/firmware"
+          make ARCH=arm64 CROSS_COMPILE=$HOME/tc49/bin/aarch64-linux-android- oldconfig
+          make ARCH=arm64 CROSS_COMPILE=$HOME/tc49/bin/aarch64-linux-android- -j$(nproc) Image dtbs
+          cat arch/arm64/boot/Image arch/arm64/boot/dts/exynos/exynos7870-a2corelte.dtb > ../kernel-dtb 2>/dev/null || \
+          cat arch/arm64/boot/Image $(find arch/arm64/boot/dts -name '*a2core*.dtb' | head -1) > ../kernel-dtb
+          cd ..
+      - name: Pack v5 boot.img
+        run: |
+          set -x
+          ./magiskboot unpack boot.img
+          mkdir rd && cd rd && ../magiskboot cpio ../ramdisk.cpio extract
           sed -i 's/,verify//g; s/,avb=vbmeta//g; s/,avb_keys=.*//g' fstab.samsungexynos7870 2>/dev/null || true
           sed -i 's/,verify//g; s/,avb=vbmeta//g; s/,avb_keys=.*//g' fstab.exynos7870 2>/dev/null || true
-          grep -q "setenforce 0" init.rc || sed -i '/on early-init/a\    setenforce 0' init.rc || printf 'on early-init\n    setenforce 0\n' >> init.rc
-          ../magiskboot cpio ../lin/ramdisk.cpio "add 750 init.rc init.rc" || true
-          ../magiskboot cpio ../lin/ramdisk.cpio "add 644 fstab.samsungexynos7870 fstab.samsungexynos7870" || true
-          ../magiskboot cpio ../lin/ramdisk.cpio "add 644 fstab.exynos7870 fstab.exynos7870" || true
+          grep -q "setenforce 0" init.rc || sed -i '/on early-init/a\    setenforce 0' init.rc
+          ../magiskboot cpio ../ramdisk.cpio "add 750 init.rc init.rc" || true
           cd ..
-          cp lin/ramdisk.cpio stock/ramdisk.cpio
-          cd stock && ../magiskboot repack ../stock_boot.img ../patched_boot.img
-          ../magiskboot hexpatch ../patched_boot.img 6C6F676C6576656C3D34 6C6F676C6576656C3D38 && cd ..
-          if [ "$(tail -c 16 stock_boot.img)" = "SEANDROIDENFORCE" ]; then printf 'SEANDROIDENFORCE' >> patched_boot.img; fi
-          mkdir check && cd check && ../magiskboot unpack ../patched_boot.img && cd ..
-          ls -la stock_boot.img boot.img patched_boot.img
-
-      - name: Upload Patched Boot.img v3
+          cp kernel-dtb kernel
+          ./magiskboot repack boot.img patched_boot.img
+      - name: Upload v5
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: patched-boot-v3
+          tag_name: patched-boot-v5
           files: patched_boot.img
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
