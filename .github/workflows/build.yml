@@ -1,0 +1,56 @@
+name: Build Patched Boot.img
+on: [workflow_dispatch]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      - name: Setup Magiskboot
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget unzip
+          wget -q https://github.com/topjohnwu/Magisk/releases/download/v26.4/Magisk-v26.4.apk
+          unzip -j Magisk-v26.4.apk 'lib/x86_64/libmagiskboot.so' -d .
+          mv libmagiskboot.so magiskboot
+          chmod +x magiskboot
+
+      - name: Unpack and Patch
+        run: |
+          ./magiskboot unpack boot.img
+          rm -f dtb
+          # FORCE append DTB to the raw kernel image
+          cat Image dtb.img > kernel
+          
+          # Extract Ramdisk to patch fstab and init.rc
+          mkdir ramdisk && cd ramdisk
+          ../magiskboot cpio ../ramdisk.cpio extract
+          
+          # FIX 1: Strip verity/avb from fstab to prevent dm-verity panics
+          sed -i 's/,verify//g; s/,avb=vbmeta//g; s/,avb_keys=.*//g' fstab.samsungexynos7870 || true
+          sed -i 's/,verify//g; s/,avb=vbmeta//g; s/,avb_keys=.*//g' fstab.exynos7870 || true
+          
+          # FIX 2: Force SELinux Permissive in early-init (bypasses bootloader enforcing flag)
+          if ! grep -q "setenforce 0" init.rc; then
+            sed -i '/on early-init/a \    setenforce 0' init.rc || echo -e "on early-init\n    setenforce 0" >> init.rc
+          fi
+          
+          # Repack Ramdisk with patched files
+          ../magiskboot cpio ../ramdisk.cpio "add 750 fstab.samsungexynos7870 fstab.samsungexynos7870" || true
+          ../magiskboot cpio ../ramdisk.cpio "add 750 fstab.exynos7870 fstab.exynos7870" || true
+          ../magiskboot cpio ../ramdisk.cpio "add 750 init.rc init.rc"
+          cd ..
+          
+          # Repack boot.img with new kernel+DTB and patched ramdisk
+          ./magiskboot repack boot.img patched_boot.img
+
+      - name: Upload Patched Boot.img
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: patched-boot-v1
+          files: patched_boot.img
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
