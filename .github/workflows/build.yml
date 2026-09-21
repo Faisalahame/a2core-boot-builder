@@ -1,4 +1,4 @@
-name: Build Patched Boot.img (Ramdisk Only)
+name: Build Patched Boot.img v3 (Stock Base + Lineage Ramdisk)
 on: [workflow_dispatch]
 permissions:
   contents: write
@@ -8,7 +8,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      
+
       - name: Setup Magiskboot
         run: |
           sudo apt-get update
@@ -18,42 +18,36 @@ jobs:
           mv libmagiskboot.so magiskboot
           chmod +x magiskboot
 
-      - name: Download Original Lineage Boot.img
+      - name: Download Lineage boot.img (ramdisk donor)
         run: |
           gh release download run-35587451585 -R Faisalahame/lineage-a2corelte -p 'boot.img' --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Unpack and Patch Ramdisk ONLY
+      - name: Build v3 = stock base + Lineage ramdisk + fixes
         run: |
-          ./magiskboot unpack boot.img
-          
-          # Extract Ramdisk to patch fstab and init.rc
-          mkdir ramdisk && cd ramdisk
-          ../magiskboot cpio ../ramdisk.cpio extract
-          
-          # FIX 1: Strip verity/avb from fstab to prevent dm-verity panics
-          sed -i 's/,verify//g; s/,avb=vbmeta//g; s/,avb_keys=.*//g' fstab.samsungexynos7870 || true
-          sed -i 's/,verify//g; s/,avb=vbmeta//g; s/,avb_keys=.*//g' fstab.exynos7870 || true
-          
-          # FIX 2: Force SELinux Permissive in early-init
-          if ! grep -q "setenforce 0" init.rc; then
-            sed -i '/on early-init/a \    setenforce 0' init.rc || echo -e "on early-init\n    setenforce 0" >> init.rc
-          fi
-          
-          # Repack Ramdisk with patched files
-          ../magiskboot cpio ../ramdisk.cpio "add 750 fstab.samsungexynos7870 fstab.samsungexynos7870" || true
-          ../magiskboot cpio ../ramdisk.cpio "add 750 fstab.exynos7870 fstab.exynos7870" || true
-          ../magiskboot cpio ../ramdisk.cpio "add 750 init.rc init.rc"
+          set -x
+          mkdir stock && cd stock && ../magiskboot unpack ../stock_boot.img && cd ..
+          mkdir lin && cd lin && ../magiskboot unpack ../boot.img && cd ..
+          mkdir rd && cd rd
+          ../magiskboot cpio ../lin/ramdisk.cpio extract
+          sed -i 's/,verify//g; s/,avb=vbmeta//g; s/,avb_keys=.*//g' fstab.samsungexynos7870 2>/dev/null || true
+          sed -i 's/,verify//g; s/,avb=vbmeta//g; s/,avb_keys=.*//g' fstab.exynos7870 2>/dev/null || true
+          grep -q "setenforce 0" init.rc || sed -i '/on early-init/a\    setenforce 0' init.rc || printf 'on early-init\n    setenforce 0\n' >> init.rc
+          ../magiskboot cpio ../lin/ramdisk.cpio "add 750 init.rc init.rc" || true
+          ../magiskboot cpio ../lin/ramdisk.cpio "add 644 fstab.samsungexynos7870 fstab.samsungexynos7870" || true
+          ../magiskboot cpio ../lin/ramdisk.cpio "add 644 fstab.exynos7870 fstab.exynos7870" || true
           cd ..
-          
-          # Repack boot.img. DO NOT TOUCH kernel or dtb. Magiskboot will reuse the original ones.
-          ./magiskboot repack boot.img patched_boot.img
+          cp lin/ramdisk.cpio stock/ramdisk.cpio
+          cd stock && ../magiskboot repack ../stock_boot.img ../patched_boot.img && cd ..
+          if [ "$(tail -c 16 stock_boot.img)" = "SEANDROIDENFORCE" ]; then printf 'SEANDROIDENFORCE' >> patched_boot.img; fi
+          mkdir check && cd check && ../magiskboot unpack ../patched_boot.img && cd ..
+          ls -la stock_boot.img boot.img patched_boot.img
 
-      - name: Upload Patched Boot.img
+      - name: Upload Patched Boot.img v3
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: patched-boot-v2
+          tag_name: patched-boot-v3
           files: patched_boot.img
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
