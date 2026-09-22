@@ -62,19 +62,17 @@ jobs:
           DTB=$(find arch/arm64/boot/dts -name '*a2core*.dtb' | head -1)
           cat arch/arm64/boot/Image $DTB > ../kernel-dtb
           cd ..
-      - name: Pack v7 boot.img (inject fstab into ramdisk)
+      - name: Pack v12 boot.img (surgical cpio add - keep init exec bit)
         run: |
           set -x
           ./magiskboot unpack boot.img
-          mkdir rd && cd rd
-          ../magiskboot cpio ../ramdisk.cpio extract
           curl -sfL -o fstab.samsungexynos7870 https://raw.githubusercontent.com/Faisalahame/lineage-a2corelte/main/rootdir/fstab.samsungexynos7870
           sed -i 's/,verify//g; s/,avb=vbmeta//g; s/,avb_keys=.*//g' fstab.samsungexynos7870
-          cd ..
-          rm -f ramdisk.cpio
-          (cd rd && find . | cpio -o -H newc > ../ramdisk.cpio)
+          ./magiskboot cpio ramdisk.cpio "add 644 fstab.samsungexynos7870 fstab.samsungexynos7870"
+          ./magiskboot cpio ramdisk.cpio "exists init"
           cp kernel-dtb kernel
           ./magiskboot repack boot.img patched_boot.img
+          ls -la patched_boot.img
       - name: Upload v7
         uses: softprops/action-gh-release@v2
         with:
