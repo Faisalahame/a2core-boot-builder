@@ -71,7 +71,6 @@ jobs:
           mkdir rd && cd rd
           cpio -idm < ../ramdisk.cpio
           # Strip restorecon /vendor from init.rc to bypass missing vendor file_contexts
-          sed -i 's/^restorecon .* \/vendor/#&/' init.rc
           # Ensure init doesn't crash if it encounters missing directories
           sed -i 's/^mkdir.*\/mnt\/vendor/#&/' init.rc || true
           ls -la init
