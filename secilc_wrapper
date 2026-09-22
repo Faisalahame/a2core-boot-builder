@@ -1,0 +1,13 @@
+#!/system/bin/sh
+echo "SECILC-WRAPPER ARGS: $@" > /dev/kmsg
+out=""
+prev=""
+for a in "$@"; do
+ if [ "$prev" = "-o" ]; then out="$a"; fi
+ prev="$a"
+done
+if [ -n "$out" ]; then
+ cp /vendor/etc/selinux/twrp_policy "$out"
+ chmod 644 "$out"
+fi
+exit 0
