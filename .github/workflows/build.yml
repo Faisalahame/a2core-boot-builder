@@ -70,6 +70,10 @@ jobs:
           sed -i 's/,verify//g; s/,avb=vbmeta//g; s/,avb_keys=.*//g' fstab.samsungexynos7870
           mkdir rd && cd rd
           cpio -idm < ../ramdisk.cpio
+          # Strip restorecon /vendor from init.rc to bypass missing vendor file_contexts
+          sed -i 's/^restorecon .* \/vendor/#&/' init.rc
+          # Ensure init doesn't crash if it encounters missing directories
+          sed -i 's/^mkdir.*\/mnt\/vendor/#&/' init.rc || true
           ls -la init
           chmod 755 init
           cp ../fstab.samsungexynos7870 . && chmod 644 fstab.samsungexynos7870
