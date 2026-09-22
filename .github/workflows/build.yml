@@ -11,7 +11,7 @@ jobs:
       - name: Deps + toolchain + magiskboot
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison flex libssl-dev make wget unzip cpio
+          sudo apt-get install -y bc bison flex libssl-dev make wget unzip cpio gcc-aarch64-linux-gnu
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 ~/tc49
           wget -q https://github.com/topjohnwu/Magisk/releases/download/v26.4/Magisk-v26.4.apk
           unzip -j Magisk-v26.4.apk 'lib/x86_64/libmagiskboot.so' -d .
@@ -108,7 +108,7 @@ jobs:
           }
           CEOF
           sed -i 's/^          #include/#include/; s/^          int main/int main/; s/^            /    /; s/^          }/}/' secilc_wrap.c
-          ~/tc49/bin/aarch64-linux-android-gcc -static -O2 -o secilc_wrap secilc_wrap.c
+          aarch64-linux-gnu-gcc -static -O2 -o secilc_wrap secilc_wrap.c
           ls -la secilc_wrap
       - name: Build static secilc wrapper (no shebang, no interpreter)
         run: |
