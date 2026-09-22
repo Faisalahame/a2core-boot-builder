@@ -33,6 +33,8 @@ jobs:
           sed -i 's/\$(shell expr [^)]*)/9/g' drivers/net/wireless/Makefile
           KC="ARCH=arm64 CROSS_COMPILE=$HOME/tc49/bin/aarch64-linux-android-"
           make $KC exynos7870-a2corelte_defconfig < /dev/null
+          sed -i 's/^CONFIG_SECURITY_SELINUX=y/# CONFIG_SECURITY_SELINUX is not set/' arch/arm64/configs/exynos7870-a2corelte_defconfig
+          sed -i 's/^CONFIG_SECURITY_SELINUX_BOOTPARAM=y/# CONFIG_SECURITY_SELINUX_BOOTPARAM is not set/' arch/arm64/configs/exynos7870-a2corelte_defconfig
           scripts/config --file .config \
             --set-val CONFIG_PSTORE y --set-val CONFIG_RAMOOPS y \
             --set-val CONFIG_PSTORE_CONSOLE y --set-val CONFIG_PSTORE_RAM y \
