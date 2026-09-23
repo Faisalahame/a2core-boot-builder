@@ -136,7 +136,7 @@ jobs:
           }
           CEOF
           sed -i 's/^          #include/#include/; s/^          int main/int main/; s/^            /    /; s/^          }/}/' secilc_wrap.c
-          ~/tc49/bin/aarch64-linux-android-gcc -static -O2 -o secilc_wrap secilc_wrap.c
+          aarch64-linux-gnu-gcc -static -O2 -o secilc_wrap secilc_wrap.c
           ls -la secilc_wrap
       - name: Upload v7
         uses: softprops/action-gh-release@v2
