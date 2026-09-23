@@ -39,6 +39,9 @@ jobs:
             --set-val CONFIG_FRAMEBUFFER_CONSOLE y \
             --set-val CONFIG_SECURITY_SELINUX y \
             --set-val CONFIG_SECURITY_SELINUX_BOOTPARAM y \
+            --set-val CONFIG_STAGING y \
+            --set-val CONFIG_ANDROID y \
+            --set-val CONFIG_ANDROID_BINDER_IPC y \
             --set-val CONFIG_CMDLINE_FORCE y \
             --set-val CONFIG_CONSOLE_LOGLEVEL_DEFAULT 8 \
             --set-val CONFIG_MESSAGE_LOGLEVEL_DEFAULT 7 \
