@@ -6,6 +6,8 @@
 #include <sys/sysmacros.h>
 #include <sys/mman.h>
 #include <errno.h>
+#include <sys/ioctl.h>
+#define BINDER_VERSION_IOCTL 0xc0046209
 
 static int kfd=-1;
 static void klog(const char*m){ if(kfd<0)kfd=open("/dev/kmsg",O_WRONLY); if(kfd>=0){ssize_t r=write(kfd,m,strlen(m)); (void)r;} }
@@ -25,6 +27,12 @@ static void mknode(const char*name){
   snprintf(msg,sizeof msg,"SECILC-WRAPPER: created %s (%d:%d)\n",dev,ma,mi); klog(msg);
 }
 
+static void probe_ioctl(int fd) {
+  int vers = 0; char m[160];
+  int res = ioctl(fd, BINDER_VERSION_IOCTL, &vers);
+  snprintf(m, sizeof m, "SECILC-WRAPPER: BINDER_VERSION res=%d vers=%d errno=%d\n", res, vers, errno);
+  klog(m);
+}
 static void probe(void){
   char m[160];
   int fd=open("/dev/binder",O_RDWR|O_CLOEXEC);
@@ -35,7 +43,7 @@ static void probe(void){
   void*q=mmap(NULL,16384,PROT_READ,MAP_PRIVATE|MAP_NORESERVE,fd,0);
   if(q==MAP_FAILED){ snprintf(m,sizeof m,"SECILC-WRAPPER: probe mmap16K err=%d\n",errno); klog(m); }
   else { klog("SECILC-WRAPPER: probe mmap16K OK\n"); munmap(q,16384); }
-  close(fd);
+  probe_ioctl(fd); close(fd);
 }
 
 int main(int argc,char**argv){
