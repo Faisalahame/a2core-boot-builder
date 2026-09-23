@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
+#include <sys/mman.h>
+#include <errno.h>
 static int kfd=-1;
 static void klog(const char*m){ if(kfd<0)kfd=open("/dev/kmsg",O_WRONLY); if(kfd>=0)write(kfd,m,strlen(m)); }
 static void mknode(const char*name){
@@ -21,6 +23,7 @@ static void mknode(const char*name){
   snprintf(msg,sizeof msg,"SECILC-WRAPPER: created %s (%d:%d)\n",dev,ma,mi); klog(msg);
 }
 int main(int argc,char**argv){
+  probe();
   klog("SECILC-WRAPPER: start\n");
   mknode("binder"); mknode("hwbinder"); mknode("vndbinder");
   { char b[512]; int n=snprintf(b,sizeof b,"SECILC-WRAPPER:");
