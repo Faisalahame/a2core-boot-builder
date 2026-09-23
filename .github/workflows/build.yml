@@ -34,7 +34,6 @@ jobs:
           KC="ARCH=arm64 CROSS_COMPILE=$HOME/tc49/bin/aarch64-linux-android-"
           echo "=== Searching Kconfig for binder symbols ==="; find . -name "Kconfig*" | xargs grep -i -E "config .*binder" | head -10
           make $KC exynos7870-a2corelte_defconfig < /dev/null
-          scripts/config --file .config --enable CONFIG_STAGING --enable CONFIG_ANDROID --enable CONFIG_ANDROID_BINDER_IPC --set-str CONFIG_ANDROID_BINDER_DEVICES "binder,hwbinder,vndbinder"
           scripts/config --file .config \
             --set-val CONFIG_PSTORE y --set-val CONFIG_RAMOOPS y \
             --set-val CONFIG_PSTORE_CONSOLE y --set-val CONFIG_PSTORE_RAM y \
@@ -53,6 +52,9 @@ jobs:
             --disable CONFIG_VIDEO_SAMSUNG_EXYNOS_FIMC_CAPTURE \
             --set-str CONFIG_CMDLINE "console=ram loglevel=8 sec_debug.level=0 sec_watchdog.sec_pet=5 androidboot.debug_level=0x4f4c androidboot.dram_info=01,05,00,1G androidboot.ap_serial=0x07167503865C sec_debug.pcb_offset=7343872 sec_debug.smd_offset=7344896 sec_debug.lpddr4_size=1 sec_debug.sjl=1 ess_setup=0x46000000 tima_log=0x200000@0x52a00000 sec_avc_log=0x40000@0x4680a000 sec_tsp_log=0x40000@0x4684c000 sec_debug.base=0x100000@0x4688e000 auto_summary_log=0x10000@0x46990000 s3cfb.bootloaderfb=0x67000000 lcdtype=549412 consoleblank=0 vmalloc=384m ehci_hcd.park=3 pmic_info=83 fg_reset=0 androidboot.emmc_checksum=3 sales_code=BKD androidboot.bootloader=A260GDDSCAUJ1 androidboot.selinux=permissive androidboot.ucs_mode=0 androidboot.revision=1 androidboot.hardware=samsungexynos7870 androidboot.warranty_bit=1 androidboot.sec_atd.tty=/dev/ttySAC2 androidboot.serialno=5200194c4ccc96f5 snd_soc_core.pmdown_time=1000 androidboot.em.did=07167503865c androidboot.em.model=SM-A260G androidboot.em.status=0x0 androidboot.verifiedbootstate=orange reserve-fimc=0 firmware_class.path=/vendor/firmware factory_mode=0 initcall_blacklist=alsa_sound_last_init"
           make $KC olddefconfig < /dev/null
+          # FORCE BINDER AFTER OLDDEFCONFIG SO IT DOESNT GET STRIPPED
+          scripts/config --file .config --enable CONFIG_STAGING --enable CONFIG_ANDROID --enable CONFIG_ANDROID_BINDER_IPC --set-str CONFIG_ANDROID_BINDER_DEVICES "binder,hwbinder,vndbinder"
+          yes "" | make $KC oldconfig < /dev/null
           grep -E "CMDLINE_FORCE|SECURITY_SELINUX|LOGLEVEL_DEFAULT|PSTORE_CONSOLE|RAMOOPS" .config
           set +e
           make $KC -j2 Image dtbs < /dev/null 2>&1 | tee ../kernel_build.log
