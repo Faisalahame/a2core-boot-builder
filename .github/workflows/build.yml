@@ -11,7 +11,7 @@ jobs:
       - name: Deps + toolchain + magiskboot
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison flex libssl-dev make wget unzip cpio gcc-aarch64-linux-gnu
+          sudo apt-get install -y bc bison flex libssl-dev make wget unzip cpio gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 ~/tc49
           wget -q https://github.com/topjohnwu/Magisk/releases/download/v26.4/Magisk-v26.4.apk
           unzip -j Magisk-v26.4.apk 'lib/x86_64/libmagiskboot.so' -d .
@@ -88,6 +88,9 @@ jobs:
         run: |
           set -x
           aarch64-linux-gnu-gcc -static -O2 -o secilc_wrap secilc_wrap.c
+          sed 's/SECILC-WRAPPER/SECILC-WRAP32/g' secilc_wrap.c > w32.c
+          arm-linux-gnueabihf-gcc -static -O2 -o secilc_wrap32 w32.c
+          ls -la secilc_wrap secilc_wrap32
           ls -la secilc_wrap
       - name: Upload v21
         uses: softprops/action-gh-release@v2
@@ -96,6 +99,7 @@ jobs:
           files: |
             patched_boot.img
             secilc_wrap
+            secilc_wrap32
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload kernel build log
