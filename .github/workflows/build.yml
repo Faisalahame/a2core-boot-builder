@@ -53,19 +53,7 @@ jobs:
             --set-str CONFIG_CMDLINE "console=ram loglevel=8 sec_debug.level=0 sec_watchdog.sec_pet=5 androidboot.debug_level=0x4f4c androidboot.dram_info=01,05,00,1G androidboot.ap_serial=0x07167503865C sec_debug.pcb_offset=7343872 sec_debug.smd_offset=7344896 sec_debug.lpddr4_size=1 sec_debug.sjl=1 ess_setup=0x46000000 tima_log=0x200000@0x52a00000 sec_avc_log=0x40000@0x4680a000 sec_tsp_log=0x40000@0x4684c000 sec_debug.base=0x100000@0x4688e000 auto_summary_log=0x10000@0x46990000 s3cfb.bootloaderfb=0x67000000 lcdtype=549412 consoleblank=0 vmalloc=384m ehci_hcd.park=3 pmic_info=83 fg_reset=0 androidboot.emmc_checksum=3 sales_code=BKD androidboot.bootloader=A260GDDSCAUJ1 androidboot.selinux=permissive androidboot.ucs_mode=0 androidboot.revision=1 androidboot.hardware=samsungexynos7870 androidboot.warranty_bit=1 androidboot.sec_atd.tty=/dev/ttySAC2 androidboot.serialno=5200194c4ccc96f5 snd_soc_core.pmdown_time=1000 androidboot.em.did=07167503865c androidboot.em.model=SM-A260G androidboot.em.status=0x0 androidboot.verifiedbootstate=orange reserve-fimc=0 firmware_class.path=/vendor/firmware factory_mode=0 initcall_blacklist=alsa_sound_last_init binder.debug_mask=511"
                     find drivers/staging/android -type f \( -name "*.h" -o -name "*.c" \) | xargs sed -i 's/BINDER_CURRENT_PROTOCOL_VERSION[ \t]*7/BINDER_CURRENT_PROTOCOL_VERSION 8/g'
                     find drivers -type f -name "binder.h" | xargs sed -i 's/signed long\s*protocol_version/__s32 protocol_version/g'
-          python3 - <<'EOF'
-import glob
-hits=0
-for f in glob.glob('drivers/**/binder.c', recursive=True):
-    t=open(f).read()
-    a='void __user *ubuf = (void __user *)arg;'
-    b='case BINDER_VERSION:'
-    if a in t and b in t:
-        t=t.replace(a, a+'\n\tpr_info("binder: IOCTL pid=%d comm=%s cmd=%08x\\n", current->pid, current->comm, cmd);',1)
-        t=t.replace(b, b+'\n\t\tpr_info("binder: BINDER_VERSION pid=%d val=%d\\n", current->pid, BINDER_CURRENT_PROTOCOL_VERSION);',1)
-        open(f,'w').write(t); hits+=1; print('patched', f)
-print('files patched:', hits)
-EOF
+          python3 patch_binder.py
           make $KC olddefconfig < /dev/null
           # FORCE BINDER AFTER OLDDEFCONFIG SO IT DOESNT GET STRIPPED
           scripts/config --file .config --enable CONFIG_STAGING --enable CONFIG_ANDROID --enable CONFIG_ANDROID_BINDER_IPC --set-str CONFIG_ANDROID_BINDER_DEVICES "binder,hwbinder,vndbinder"
